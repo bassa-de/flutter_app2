@@ -30,90 +30,113 @@ class _CalendarScreenState extends State<CalendarScreen> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
-  Map<DateTime, double> _budget = {};
+  Map<DateTime, List<String>> _events = {};
 
   @override
   void initState() {
     super.initState();
+    _events = {
+      DateTime.now(): ['Sample Event 1', 'Sample Event 2'],
+    };
   }
 
-  void _showBudgetDialog(DateTime selectedDay) {
-    final TextEditingController _budgetController = TextEditingController();
+  List<String> _getEventsForDay(DateTime day) {
+    return _events[day] ?? [];
+  }
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Enter Budget for ${selectedDay.toLocal()}'),
-          content: TextField(
-            controller: _budgetController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              hintText: 'Enter amount',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('CANCEL'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text('SAVE'),
-              onPressed: () {
-                setState(() {
-                  _budget[selectedDay] =
-                      double.tryParse(_budgetController.text) ?? 0.0;
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+  void _addEvent(String event) {
+    setState(() {
+      if (_events[_selectedDay] != null) {
+        _events[_selectedDay]!.add(event);
+      } else {
+        _events[_selectedDay] = [event];
+      }
+    });
+  }
+
+  void _removeEvent(String event) {
+    setState(() {
+      _events[_selectedDay]?.remove(event);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Table Calendar')),
-      body: TableCalendar(
-        firstDay: DateTime.utc(1900, 1, 1),
-        lastDay: DateTime.utc(2100, 12, 31),
-        focusedDay: _focusedDay,
-        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        calendarFormat: _calendarFormat,
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-          });
-          _showBudgetDialog(selectedDay);
-        },
-        onFormatChanged: (format) {
-          setState(() {
-            _calendarFormat = format;
-          });
-        },
-        calendarBuilders: CalendarBuilders(
-          defaultBuilder: (context, day, focusedDay) {
-            return Column(
-              children: [
-                Text(
-                  day.day.toString(),
-                  style: TextStyle(color: Colors.black),
-                ),
-                if (_budget[day] != null)
-                  Text(
-                    '\$${_budget[day]!.toStringAsFixed(2)}',
-                    style: TextStyle(color: Colors.green),
-                  ),
-              ],
-            );
+      appBar: AppBar(title: Text('Flutter Calendar')),
+      body: Column(
+        children: [
+          TableCalendar(
+            firstDay: DateTime.utc(1900, 1, 1),
+            lastDay: DateTime.utc(2100, 12, 31),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            calendarFormat: _calendarFormat,
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            onFormatChanged: (format) {
+              setState(() {
+                _calendarFormat = format;
+              });
+            },
+            eventLoader: _getEventsForDay,
+          ),
+          const SizedBox(height: 8.0),
+          Expanded(
+            child: ListView(
+              children: _getEventsForDay(_selectedDay)
+                  .map((event) => ListTile(
+                        title: Text(event),
+                        trailing: IconButton(
+                          icon: Icon(Icons.delete),
+                          onPressed: () => _removeEvent(event),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEventDialog(),
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showAddEventDialog() {
+    String newEvent = '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add Event'),
+        content: TextField(
+          onChanged: (value) {
+            newEvent = value;
           },
+          decoration: InputDecoration(hintText: 'Event Title'),
         ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (newEvent.isNotEmpty) {
+                _addEvent(newEvent);
+              }
+              Navigator.of(context).pop();
+            },
+            child: Text('Add'),
+          ),
+        ],
       ),
     );
   }
